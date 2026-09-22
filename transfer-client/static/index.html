@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TransferSimulator — клиент</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    max-width: 640px;
+    margin: 40px auto;
+    padding: 0 16px;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  #base-url { font-size: 0.85rem; color: #6b7280; word-break: break-all; margin-top: 0; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 20px 0; flex-wrap: wrap; }
+  select, button {
+    font-size: 1rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  button {
+    cursor: pointer;
+    background: #2563eb;
+    color: white;
+    border: none;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  #result {
+    margin-top: 8px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    min-height: 24px;
+    white-space: pre-wrap;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  }
+  #result.error { background: #fee2e2; color: #991b1b; }
+  #result.value { background: #ecfdf5; color: #065f46; }
+</style>
+</head>
+<body>
+  <h1>Клиент API TransferSimulator</h1>
+  <p id="base-url">Загрузка конфигурации…</p>
+
+  <div class="row">
+    <label for="type">Тип данных:</label>
+    <select id="type"></select>
+    <button id="fetch-btn">Получить данные</button>
+  </div>
+
+  <div id="result">Здесь появится результат запроса.</div>
+
+  <script>
+    const typeSelect = document.getElementById('type');
+    const resultEl = document.getElementById('result');
+    const baseUrlEl = document.getElementById('base-url');
+    const btn = document.getElementById('fetch-btn');
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        baseUrlEl.textContent = 'API: ' + cfg.baseUrl;
+        typeSelect.innerHTML = '';
+        for (const t of cfg.types) {
+          const opt = document.createElement('option');
+          opt.value = t.key;
+          opt.textContent = t.label + ' (' + t.key + ')';
+          typeSelect.appendChild(opt);
+        }
+      } catch (err) {
+        baseUrlEl.textContent = 'Не удалось загрузить конфигурацию: ' + err.message;
+      }
+    }
+
+    async function fetchData() {
+      const type = typeSelect.value;
+      btn.disabled = true;
+      resultEl.className = '';
+      resultEl.textContent = 'Запрашиваю данные…';
+      try {
+        const res = await fetch('/api/data?type=' + encodeURIComponent(type));
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          resultEl.className = 'error';
+          resultEl.textContent = data.error || ('Ошибка: HTTP ' + res.status);
+        } else if (data.value !== undefined) {
+          resultEl.className = 'value';
+          resultEl.textContent = data.value;
+        } else {
+          resultEl.className = '';
+          resultEl.textContent = JSON.stringify(data, null, 2);
+        }
+      } catch (err) {
+        resultEl.className = 'error';
+        resultEl.textContent = 'Сетевая ошибка: ' + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    btn.addEventListener('click', fetchData);
+    loadConfig();
+  </script>
+</body>
+</html>
